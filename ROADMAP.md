@@ -13,10 +13,10 @@ This is the task list to complete the `ptto-template-go` showcase. Once these ar
 - [x] **The Resource Monitor**: A tiny footer widget using `hx-get` with `hx-trigger="every 5s"` to stream the Go binary's current RAM usage (proving the sub-20MB footprint).
 
 ### Phase 3: The Potato Auth (Passkeys)
-- [ ] Create SQLite schema for `users`, `credentials` (passkeys), and HTTP-only `sessions`.
-- [ ] Implement Go WebAuthn library (`github.com/go-webauthn/webauthn`).
-- [ ] **WebAuthn Sandbox UI**: A section on the landing page where a user can click "Register Device" to trigger the browser's native biometric prompt.
-- [ ] Implement HTMX swapping upon successful auth to replace the "Register" button with the user's active session data and credential ID.
+- [x] Create SQLite schema for `users`, `credentials` (passkeys), and HTTP-only `sessions`.
+- [x] Implement Go WebAuthn library (`github.com/go-webauthn/webauthn`).
+- [x] **WebAuthn Sandbox UI**: A section on the landing page where a user can click "Register Device" to trigger the browser's native biometric prompt.
+- [x] Implement HTMX swapping upon successful auth to replace the "Register" button with the user's active session data and credential ID.
 
 ### Phase 4: Documentation & Onboarding (The Webpage)
 - [ ] **The Tutorial Route**: Create a `GET /tutorial` handler in Go.

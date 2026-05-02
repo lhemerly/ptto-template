@@ -2,7 +2,7 @@ package views
 
 import "fmt"
 
-templ Home(renderTimeMicros int64) {
+templ Home(renderTimeMicros int64, sessionActive bool, sessionID string, credentialID string) {
 	<!doctype html>
 	<html lang="en">
 		<head>
@@ -21,11 +21,64 @@ templ Home(renderTimeMicros int64) {
 					<button hx-post="/latency-ping" hx-target="#latency-result" hx-swap="innerHTML">Ping SQLite</button>
 					<div id="latency-result" style="margin-top: 0.5rem; color: #333;"></div>
 				</section>
+
+				<section style="margin-top: 1.5rem;">
+					<h2>WebAuthn Sandbox</h2>
+					<div id="auth-sandbox">
+						if sessionActive {
+							@AuthSessionCard(sessionID, credentialID)
+						} else {
+							<button onclick="registerDevice()">Register Device</button>
+						}
+					</div>
+				</section>
 			</main>
 
 			<footer style="margin-top: 2rem; font-size: 0.9rem; color: #555;">
 				RAM usage: <span id="resource-monitor" hx-get="/resource-monitor" hx-trigger="load, every 5s" hx-swap="innerHTML">loading...</span>
 			</footer>
+			<script>
+				function base64urlToUint8Array(base64url) {
+					const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+					const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));
+					return Uint8Array.from(binary, c => c.charCodeAt(0));
+				}
+				function uint8ArrayToBase64url(arr) {
+					const bin = String.fromCharCode(...new Uint8Array(arr));
+					return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+				}
+				async function registerDevice() {
+					const start = await fetch('/webauthn/register/start', {method:'POST'});
+					const data = await start.json();
+					const publicKey = data.publicKey;
+					publicKey.challenge = base64urlToUint8Array(publicKey.challenge);
+					publicKey.user.id = base64urlToUint8Array(publicKey.user.id);
+					const cred = await navigator.credentials.create({publicKey});
+					const payload = {
+						user_id: data.state.user_id,
+						session_data: data.state.session_data,
+						credential: {
+							id: cred.id,
+							type: cred.type,
+							rawId: uint8ArrayToBase64url(cred.rawId),
+							response: {
+								attestationObject: uint8ArrayToBase64url(cred.response.attestationObject),
+								clientDataJSON: uint8ArrayToBase64url(cred.response.clientDataJSON)
+							}
+						}
+					};
+					const finish = await fetch('/webauthn/register/finish', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+					document.getElementById('auth-sandbox').innerHTML = await finish.text();
+				}
+			</script>
 		</body>
 	</html>
+}
+
+templ AuthSessionCard(sessionID string, credentialID string) {
+	<div>
+		<p><strong>Session Active</strong></p>
+		<p>Session ID: { sessionID }</p>
+		<p>Credential ID: { credentialID }</p>
+	</div>
 }
