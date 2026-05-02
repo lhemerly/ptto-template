@@ -58,6 +58,7 @@ func NewWithDBPath(path string) (*App, error) {
 func (a *App) Router() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", a.handleHome)
+	mux.HandleFunc("/tutorial", a.handleTutorial)
 	mux.HandleFunc("/latency-ping", a.handleLatencyPing)
 	mux.HandleFunc("/resource-monitor", a.handleResourceMonitor)
 	mux.HandleFunc("/webauthn/register/start", a.handleWebAuthnRegisterStart)
@@ -80,6 +81,17 @@ func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
 	active, sessionID, credentialID := a.lookupSessionForView(r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := views.Home(renderMicros, active, sessionID, credentialID).Render(r.Context(), w); err != nil {
+		http.Error(w, "render failed", http.StatusInternalServerError)
+	}
+}
+
+func (a *App) handleTutorial(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := views.Tutorial().Render(r.Context(), w); err != nil {
 		http.Error(w, "render failed", http.StatusInternalServerError)
 	}
 }

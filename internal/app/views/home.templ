@@ -12,6 +12,13 @@ templ Home(renderTimeMicros int64, sessionActive bool, sessionID string, credent
 			<script src="/assets/htmx.min.js"></script>
 		</head>
 		<body style="font-family: sans-serif; margin: 2rem; line-height:1.5;">
+			<header style="margin-bottom: 1.5rem;">
+				<nav>
+					<a href="/">Landing</a>
+					<span style="margin: 0 0.5rem;">·</span>
+					<a href="/tutorial">Tutorial</a>
+				</nav>
+			</header>
 			<main>
 				<h1>ptto-template: Interactive Showcase</h1>
 				<p>{ fmt.Sprintf("Rendered in %dµs", renderTimeMicros) }</p>
