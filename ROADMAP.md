@@ -17,3 +17,9 @@ This is the task list to complete the `ptto-template-go` showcase. Once these ar
 - [ ] Implement Go WebAuthn library (`github.com/go-webauthn/webauthn`).
 - [ ] **WebAuthn Sandbox UI**: A section on the landing page where a user can click "Register Device" to trigger the browser's native biometric prompt.
 - [ ] Implement HTMX swapping upon successful auth to replace the "Register" button with the user's active session data and credential ID.
+
+### Phase 4: Documentation & Onboarding (The Webpage)
+- [ ] **The Tutorial Route**: Create a `GET /tutorial` handler in Go.
+- [ ] **The Tutorial View**: Build a `tutorial.templ` page that explains how to use `ptto init` and `ptto deploy`.
+- [ ] **The Teardown Guide**: Include a section on the tutorial page explaining which files to delete (the showcase routes, the Auth sandbox) to get a clean slate for building a real app.
+- [ ] **Navigation**: Add a simple header link connecting the Landing Page to the Tutorial page.
