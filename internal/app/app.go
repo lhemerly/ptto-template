@@ -1,6 +1,8 @@
 package app
 
 import (
+	"bytes"
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -8,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lhemerly/ptto-template-go/internal/app/views"
 	"github.com/lhemerly/ptto-template-go/internal/db"
 )
 
@@ -33,6 +36,7 @@ func (a *App) Router() http.Handler {
 	mux.HandleFunc("/", a.handleHome)
 	mux.HandleFunc("/latency-ping", a.handleLatencyPing)
 	mux.HandleFunc("/resource-monitor", a.handleResourceMonitor)
+	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	return mux
 }
 
@@ -43,34 +47,17 @@ func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	renderTime := time.Since(start).Microseconds()
+	if err := views.Home(0).Render(context.Background(), &bytes.Buffer{}); err != nil {
+		http.Error(w, "render failed", http.StatusInternalServerError)
+		return
+	}
+	renderMicros := time.Since(start).Microseconds()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprintf(w, `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ptto-template showcase</title>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-</head>
-<body style="font-family: sans-serif; margin: 2rem; line-height:1.5;">
-  <main>
-    <h1>ptto-template: Interactive Showcase</h1>
-    <p>Rendered in %dµs</p>
-
-    <section>
-      <h2>Latency Ping</h2>
-      <button hx-post="/latency-ping" hx-target="#latency-result" hx-swap="innerHTML">Ping SQLite</button>
-      <div id="latency-result" style="margin-top: 0.5rem; color: #333;"></div>
-    </section>
-  </main>
-
-  <footer style="margin-top: 2rem; font-size: 0.9rem; color: #555;">
-    RAM usage: <span id="resource-monitor" hx-get="/resource-monitor" hx-trigger="load, every 5s" hx-swap="innerHTML">loading...</span>
-  </footer>
-</body>
-</html>`, renderTime)
+	if err := views.Home(renderMicros).Render(r.Context(), w); err != nil {
+		http.Error(w, "render failed", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (a *App) handleLatencyPing(w http.ResponseWriter, r *http.Request) {
