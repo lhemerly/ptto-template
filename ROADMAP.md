@@ -8,9 +8,9 @@ This is the task list to complete the `ptto-template-go` showcase. Once these ar
 - [x] Create `Makefile` with a `dev` command to concurrently watch/build `templ`, Tailwind, and Go.
 
 ### Phase 2: The Interactive Showcase (Views)
-- [ ] **The Hero Section**: Minimalist landing page displaying the current server render time (e.g., "Rendered in 42µs").
-- [ ] **The Latency Ping**: A button leveraging `hx-post` that hits the SQLite DB and returns the server's timestamp, proving network-speed UI updates without JSON parsing.
-- [ ] **The Resource Monitor**: A tiny footer widget using `hx-get` with `hx-trigger="every 5s"` to stream the Go binary's current RAM usage (proving the sub-20MB footprint).
+- [x] **The Hero Section**: Minimalist landing page displaying the current server render time (e.g., "Rendered in 42µs").
+- [x] **The Latency Ping**: A button leveraging `hx-post` that hits the SQLite DB and returns the server's timestamp, proving network-speed UI updates without JSON parsing.
+- [x] **The Resource Monitor**: A tiny footer widget using `hx-get` with `hx-trigger="every 5s"` to stream the Go binary's current RAM usage (proving the sub-20MB footprint).
 
 ### Phase 3: The Potato Auth (Passkeys)
 - [ ] Create SQLite schema for `users`, `credentials` (passkeys), and HTTP-only `sessions`.
