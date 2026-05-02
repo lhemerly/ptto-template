@@ -3,9 +3,9 @@
 This is the task list to complete the `ptto-template-go` showcase. Once these are checked off, this repo will be embedded into the `ptto new` CLI command.
 
 ### Phase 1: Core Engine & Build Pipeline
-- [ ] Initialize `go.mod` and project structure (`/cmd`, `/internal`).
-- [ ] Integrate `modernc.org/sqlite` and auto-create a WAL-mode `data.sqlite` on startup.
-- [ ] Create `Makefile` with a `dev` command to concurrently watch/build `templ`, Tailwind, and Go.
+- [x] Initialize `go.mod` and project structure (`/cmd`, `/internal`).
+- [x] Integrate `modernc.org/sqlite` and auto-create a WAL-mode `data.sqlite` on startup.
+- [x] Create `Makefile` with a `dev` command to concurrently watch/build `templ`, Tailwind, and Go.
 
 ### Phase 2: The Interactive Showcase (Views)
 - [ ] **The Hero Section**: Minimalist landing page displaying the current server render time (e.g., "Rendered in 42µs").
