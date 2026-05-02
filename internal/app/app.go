@@ -90,8 +90,13 @@ func (a *App) handleTutorial(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	buf := &bytes.Buffer{}
+	if err := views.Tutorial().Render(r.Context(), buf); err != nil {
+		http.Error(w, "render failed", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := views.Tutorial().Render(r.Context(), w); err != nil {
+	if _, err := w.Write(buf.Bytes()); err != nil {
 		http.Error(w, "render failed", http.StatusInternalServerError)
 	}
 }
