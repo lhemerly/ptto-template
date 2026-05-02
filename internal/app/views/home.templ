@@ -55,8 +55,6 @@ templ Home(renderTimeMicros int64, sessionActive bool, sessionID string, credent
 					publicKey.user.id = base64urlToUint8Array(publicKey.user.id);
 					const cred = await navigator.credentials.create({publicKey});
 					const payload = {
-						user_id: data.state.user_id,
-						session_data: data.state.session_data,
 						credential: {
 							id: cred.id,
 							type: cred.type,

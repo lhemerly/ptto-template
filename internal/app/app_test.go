@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -67,6 +68,52 @@ func TestShowcaseRoutes(t *testing.T) {
 		body := rr.Body.String()
 		if !strings.Contains(body, "MB") {
 			t.Fatalf("unexpected body = %q", body)
+		}
+	})
+
+	t.Run("webauthn start method check", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/webauthn/register/start", nil)
+		rr := httptest.NewRecorder()
+		application.Router().ServeHTTP(rr, req)
+		if rr.Code != http.StatusMethodNotAllowed {
+			t.Fatalf("status = %d, want %d", rr.Code, http.StatusMethodNotAllowed)
+		}
+	})
+
+	t.Run("webauthn start returns json and cookie", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/webauthn/register/start", nil)
+		rr := httptest.NewRecorder()
+		application.Router().ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d", rr.Code, http.StatusOK)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("invalid json: %v", err)
+		}
+		if payload["status"] != "ok" {
+			t.Fatalf("unexpected status payload: %v", payload["status"])
+		}
+		if _, ok := payload["publicKey"]; !ok {
+			t.Fatalf("missing publicKey in payload: %v", payload)
+		}
+		found := false
+		for _, c := range rr.Result().Cookies() {
+			if c.Name == registerCookieName && c.Value != "" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("missing registration cookie")
+		}
+	})
+
+	t.Run("webauthn finish invalid payload", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(`{"bad":true}`))
+		rr := httptest.NewRecorder()
+		application.Router().ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d", rr.Code, http.StatusBadRequest)
 		}
 	})
 }

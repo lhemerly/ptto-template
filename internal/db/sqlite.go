@@ -40,15 +40,14 @@ func Open(path string) (*sql.DB, error) {
 }
 
 func migrate(db *sql.DB) error {
-	const schema = `
-CREATE TABLE IF NOT EXISTS users (
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS users (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	display_name TEXT NOT NULL,
 	webauthn_id BLOB NOT NULL UNIQUE,
 	created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-);
-
-CREATE TABLE IF NOT EXISTS credentials (
+);`,
+		`CREATE TABLE IF NOT EXISTS credentials (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	user_id INTEGER NOT NULL,
 	credential_id BLOB NOT NULL UNIQUE,
@@ -58,9 +57,8 @@ CREATE TABLE IF NOT EXISTS credentials (
 	transports TEXT NOT NULL DEFAULT '',
 	created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 	FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS sessions (
+);`,
+		`CREATE TABLE IF NOT EXISTS sessions (
 	id TEXT PRIMARY KEY,
 	user_id INTEGER NOT NULL,
 	credential_id BLOB NOT NULL,
@@ -68,12 +66,26 @@ CREATE TABLE IF NOT EXISTS sessions (
 	expires_at TEXT NOT NULL,
 	FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
 	FOREIGN KEY(credential_id) REFERENCES credentials(credential_id) ON DELETE CASCADE
-);
-`
-
-	if _, err := db.Exec(schema); err != nil {
-		return fmt.Errorf("apply schema: %w", err)
+);`,
+		`CREATE TABLE IF NOT EXISTS registration_states (
+	id TEXT PRIMARY KEY,
+	user_id INTEGER NOT NULL,
+	session_data BLOB NOT NULL,
+	created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+	expires_at TEXT NOT NULL,
+	FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);`,
 	}
 
-	return nil
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin migration tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	for _, stmt := range statements {
+		if _, err := tx.Exec(stmt); err != nil {
+			return fmt.Errorf("apply schema statement: %w", err)
+		}
+	}
+	return tx.Commit()
 }

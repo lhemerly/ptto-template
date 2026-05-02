@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -22,14 +23,15 @@ import (
 )
 
 const (
-	sessionCookieName = "ptto_session"
+	sessionCookieName     = "ptto_session"
+	registerCookieName    = "ptto_webauthn_reg"
+	registerSessionMaxAge = 10 * time.Minute
 )
 
 type App struct {
 	db       *sql.DB
 	webauthn *webauthn.WebAuthn
 }
-
 type webauthnUser struct {
 	id          int64
 	displayName string
@@ -42,21 +44,17 @@ func (u webauthnUser) WebAuthnDisplayName() string                { return u.dis
 func (u webauthnUser) WebAuthnCredentials() []webauthn.Credential { return nil }
 
 func New() (*App, error) { return NewWithDBPath("data.sqlite") }
-
 func NewWithDBPath(path string) (*App, error) {
 	database, err := db.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-
 	w, err := webauthn.New(&webauthn.Config{RPDisplayName: "ptto-template", RPID: "localhost", RPOrigins: []string{"http://localhost:8080"}})
 	if err != nil {
 		return nil, fmt.Errorf("create webauthn: %w", err)
 	}
-
 	return &App{db: database, webauthn: w}, nil
 }
-
 func (a *App) Router() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", a.handleHome)
@@ -79,7 +77,6 @@ func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	renderMicros := time.Since(start).Microseconds()
-
 	active, sessionID, credentialID := a.lookupSessionForView(r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := views.Home(renderMicros, active, sessionID, credentialID).Render(r.Context(), w); err != nil {
@@ -102,10 +99,29 @@ func (a *App) handleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request
 		http.Error(w, "begin registration failed", http.StatusInternalServerError)
 		return
 	}
-
-	payload, _ := json.Marshal(map[string]any{"user_id": user.id, "session_data": sessionData})
+	registrationID, err := randomToken(32)
+	if err != nil {
+		http.Error(w, "registration setup failed", http.StatusInternalServerError)
+		return
+	}
+	sessionBytes, err := json.Marshal(sessionData)
+	if err != nil {
+		http.Error(w, "registration setup failed", http.StatusInternalServerError)
+		return
+	}
+	if err := a.storeRegistrationState(registrationID, user.id, sessionBytes, time.Now().Add(registerSessionMaxAge)); err != nil {
+		http.Error(w, "registration setup failed", http.StatusInternalServerError)
+		return
+	}
+	http.SetCookie(w, a.makeCookie(r, registerCookieName, registrationID, registerSessionMaxAge))
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(fmt.Sprintf(`{"status":"ok","publicKey":%s,"state":%s}`, mustJSON(opts.Response), payload)))
+	if err := json.NewEncoder(w).Encode(struct {
+		Status    string                                      `json:"status"`
+		PublicKey protocol.PublicKeyCredentialCreationOptions `json:"publicKey"`
+	}{Status: "ok", PublicKey: opts.Response}); err != nil {
+		http.Error(w, "encode failed", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (a *App) handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
@@ -114,15 +130,23 @@ func (a *App) handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	var body struct {
-		UserID      int64                `json:"user_id"`
-		SessionData webauthn.SessionData `json:"session_data"`
-		Credential  json.RawMessage      `json:"credential"`
+		Credential json.RawMessage `json:"credential"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Credential) == 0 {
 		http.Error(w, "invalid payload", http.StatusBadRequest)
 		return
 	}
-	user, err := a.userByID(body.UserID)
+	regCookie, err := r.Cookie(registerCookieName)
+	if err != nil {
+		http.Error(w, "missing registration state", http.StatusBadRequest)
+		return
+	}
+	userID, sessionData, err := a.loadRegistrationState(regCookie.Value)
+	if err != nil {
+		http.Error(w, "invalid registration state", http.StatusBadRequest)
+		return
+	}
+	user, err := a.userByID(userID)
 	if err != nil {
 		http.Error(w, "user not found", http.StatusBadRequest)
 		return
@@ -132,7 +156,7 @@ func (a *App) handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "parse credential failed", http.StatusBadRequest)
 		return
 	}
-	credential, err := a.webauthn.CreateCredential(user, body.SessionData, parsedCredential)
+	credential, err := a.webauthn.CreateCredential(user, *sessionData, parsedCredential)
 	if err != nil {
 		http.Error(w, "finish registration failed", http.StatusBadRequest)
 		return
@@ -146,22 +170,28 @@ func (a *App) handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "create session failed", http.StatusInternalServerError)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookieName, Value: sessionID, HttpOnly: true, Secure: false, SameSite: http.SameSiteLaxMode, Path: "/", Expires: time.Now().Add(24 * time.Hour)})
+	_ = a.deleteRegistrationState(regCookie.Value)
+	http.SetCookie(w, a.makeCookie(r, registerCookieName, "", -1))
+	http.SetCookie(w, a.makeCookie(r, sessionCookieName, sessionID, 24*time.Hour))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := views.AuthSessionCard(sessionID, hex.EncodeToString(credential.ID)).Render(r.Context(), w); err != nil {
 		http.Error(w, "render failed", http.StatusInternalServerError)
 	}
 }
 
-func mustJSON(v any) string { b, _ := json.Marshal(v); return string(b) }
 func (a *App) createUser() (webauthnUser, error) {
 	b := make([]byte, 32)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		return webauthnUser{}, fmt.Errorf("random webauthn id: %w", err)
+	}
 	res, err := a.db.Exec(`INSERT INTO users(display_name,webauthn_id) VALUES(?,?)`, fmt.Sprintf("Potato %d", time.Now().UnixNano()), b)
 	if err != nil {
 		return webauthnUser{}, err
 	}
-	id, _ := res.LastInsertId()
+	id, err := res.LastInsertId()
+	if err != nil {
+		return webauthnUser{}, err
+	}
 	return webauthnUser{id: id, displayName: "Potato", webauthnID: b}, nil
 }
 func (a *App) userByID(id int64) (webauthnUser, error) {
@@ -174,15 +204,60 @@ func (a *App) storeCredential(userID int64, c *webauthn.Credential) error {
 	for _, t := range c.Transport {
 		tr = append(tr, string(t))
 	}
-	_, err := a.db.Exec(`INSERT INTO credentials(user_id,credential_id,public_key,aaguid,sign_count,transports) VALUES(?,?,?,?,?,?)`, userID, c.ID, c.PublicKey, c.AttestationType, c.Authenticator.SignCount, strings.Join(tr, ","))
+	_, err := a.db.Exec(`INSERT INTO credentials(user_id,credential_id,public_key,aaguid,sign_count,transports) VALUES(?,?,?,?,?,?)`, userID, c.ID, c.PublicKey, c.Authenticator.AAGUID, c.Authenticator.SignCount, strings.Join(tr, ","))
 	return err
 }
 func (a *App) createSession(userID int64, credentialID []byte) (string, error) {
-	raw := make([]byte, 32)
-	_, _ = rand.Read(raw)
-	sid := base64.RawURLEncoding.EncodeToString(raw)
-	_, err := a.db.Exec(`INSERT INTO sessions(id,user_id,credential_id,expires_at) VALUES(?,?,?,?)`, sid, userID, credentialID, time.Now().Add(24*time.Hour).UTC().Format(time.RFC3339Nano))
+	sid, err := randomToken(32)
+	if err != nil {
+		return "", err
+	}
+	_, err = a.db.Exec(`INSERT INTO sessions(id,user_id,credential_id,expires_at) VALUES(?,?,?,?)`, sid, userID, credentialID, time.Now().Add(24*time.Hour).UTC().Format(time.RFC3339Nano))
 	return sid, err
+}
+func randomToken(size int) (string, error) {
+	raw := make([]byte, size)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+func (a *App) makeCookie(r *http.Request, name, value string, maxAge time.Duration) *http.Cookie {
+	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+	c := &http.Cookie{Name: name, Value: value, HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode, Path: "/"}
+	if maxAge < 0 {
+		c.MaxAge = -1
+		c.Expires = time.Unix(0, 0)
+		return c
+	}
+	c.Expires = time.Now().Add(maxAge)
+	return c
+}
+func (a *App) storeRegistrationState(id string, userID int64, sessionData []byte, expires time.Time) error {
+	_, err := a.db.Exec(`INSERT INTO registration_states(id,user_id,session_data,expires_at) VALUES(?,?,?,?)`, id, userID, sessionData, expires.UTC().Format(time.RFC3339Nano))
+	return err
+}
+func (a *App) loadRegistrationState(id string) (int64, *webauthn.SessionData, error) {
+	var userID int64
+	var payload []byte
+	var expires string
+	err := a.db.QueryRow(`SELECT user_id,session_data,expires_at FROM registration_states WHERE id=?`, id).Scan(&userID, &payload, &expires)
+	if err != nil {
+		return 0, nil, err
+	}
+	exp, err := time.Parse(time.RFC3339Nano, expires)
+	if err != nil || time.Now().After(exp) {
+		return 0, nil, errors.New("expired")
+	}
+	var sd webauthn.SessionData
+	if err := json.Unmarshal(payload, &sd); err != nil {
+		return 0, nil, err
+	}
+	return userID, &sd, nil
+}
+func (a *App) deleteRegistrationState(id string) error {
+	_, err := a.db.Exec(`DELETE FROM registration_states WHERE id=?`, id)
+	return err
 }
 func (a *App) lookupSessionForView(r *http.Request) (bool, string, string) {
 	c, err := r.Cookie(sessionCookieName)
@@ -200,7 +275,6 @@ func (a *App) lookupSessionForView(r *http.Request) (bool, string, string) {
 	}
 	return true, c.Value, hex.EncodeToString(credentialID)
 }
-
 func (a *App) handleLatencyPing(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
