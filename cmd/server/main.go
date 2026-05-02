@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -13,12 +14,19 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Printf("fatal error: %v", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	application, err := app.New()
 	if err != nil {
-		log.Fatalf("startup failed: %v", err)
+		return fmt.Errorf("startup failed: %w", err)
 	}
 	defer func() {
 		if closeErr := application.Close(); closeErr != nil {
@@ -38,13 +46,15 @@ func main() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := srv.Shutdown(shutdownCtx); err != nil {
-			log.Printf("http shutdown error: %v", err)
+		if shutdownErr := srv.Shutdown(shutdownCtx); shutdownErr != nil {
+			log.Printf("http shutdown error: %v", shutdownErr)
 		}
 	}()
 
 	log.Printf("listening on http://localhost%s", srv.Addr)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("http server error: %v", err)
+		return fmt.Errorf("http server error: %w", err)
 	}
+
+	return nil
 }

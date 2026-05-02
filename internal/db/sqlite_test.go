@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestOpenCreatesSQLiteFileAndUsesWAL(t *testing.T) {
+func TestOpenAppliesStartupPragmas(t *testing.T) {
 	t.Parallel()
 
 	dbPath := filepath.Join(t.TempDir(), "data.sqlite")
@@ -29,5 +29,21 @@ func TestOpenCreatesSQLiteFileAndUsesWAL(t *testing.T) {
 	}
 	if busyTimeout != 5000 {
 		t.Fatalf("busy_timeout = %d, want %d", busyTimeout, 5000)
+	}
+
+	var synchronous int
+	if err := database.QueryRow("PRAGMA synchronous;").Scan(&synchronous); err != nil {
+		t.Fatalf("PRAGMA synchronous query failed: %v", err)
+	}
+	if synchronous != 1 {
+		t.Fatalf("synchronous = %d, want %d (NORMAL)", synchronous, 1)
+	}
+
+	var foreignKeys int
+	if err := database.QueryRow("PRAGMA foreign_keys;").Scan(&foreignKeys); err != nil {
+		t.Fatalf("PRAGMA foreign_keys query failed: %v", err)
+	}
+	if foreignKeys != 1 {
+		t.Fatalf("foreign_keys = %d, want %d", foreignKeys, 1)
 	}
 }
