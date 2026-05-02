@@ -40,6 +40,32 @@ func TestShowcaseRoutes(t *testing.T) {
 		}
 	})
 
+
+	t.Run("tutorial page", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/tutorial", nil)
+		rr := httptest.NewRecorder()
+		application.Router().ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d", rr.Code, http.StatusOK)
+		}
+		body := rr.Body.String()
+		if !strings.Contains(body, "ptto Onboarding Tutorial") {
+			t.Fatalf("expected tutorial heading in body, got %q", body)
+		}
+		if !strings.Contains(body, "ptto init") || !strings.Contains(body, "ptto deploy") {
+			t.Fatalf("expected tutorial commands in body, got %q", body)
+		}
+	})
+
+	t.Run("tutorial method check", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/tutorial", nil)
+		rr := httptest.NewRecorder()
+		application.Router().ServeHTTP(rr, req)
+		if rr.Code != http.StatusMethodNotAllowed {
+			t.Fatalf("status = %d, want %d", rr.Code, http.StatusMethodNotAllowed)
+		}
+	})
 	t.Run("latency ping", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/latency-ping", nil)
 		rr := httptest.NewRecorder()
