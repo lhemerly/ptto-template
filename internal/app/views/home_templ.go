@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "fmt"
 
-func Home(renderTimeMicros int64) templ.Component {
+func Home(renderTimeMicros int64, sessionActive bool, sessionID string, credentialID string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -44,7 +44,77 @@ func Home(renderTimeMicros int64) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</p><section><h2>Latency Ping</h2><button hx-post=\"/latency-ping\" hx-target=\"#latency-result\" hx-swap=\"innerHTML\">Ping SQLite</button><div id=\"latency-result\" style=\"margin-top: 0.5rem; color: #333;\"></div></section></main><footer style=\"margin-top: 2rem; font-size: 0.9rem; color: #555;\">RAM usage: <span id=\"resource-monitor\" hx-get=\"/resource-monitor\" hx-trigger=\"load, every 5s\" hx-swap=\"innerHTML\">loading...</span></footer></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</p><section><h2>Latency Ping</h2><button hx-post=\"/latency-ping\" hx-target=\"#latency-result\" hx-swap=\"innerHTML\">Ping SQLite</button><div id=\"latency-result\" style=\"margin-top: 0.5rem; color: #333;\"></div></section><section style=\"margin-top: 1.5rem;\"><h2>WebAuthn Sandbox</h2><div id=\"auth-sandbox\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if sessionActive {
+			templ_7745c5c3_Err = AuthSessionCard(sessionID, credentialID).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<button onclick=\"registerDevice()\">Register Device</button>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div></section></main><footer style=\"margin-top: 2rem; font-size: 0.9rem; color: #555;\">RAM usage: <span id=\"resource-monitor\" hx-get=\"/resource-monitor\" hx-trigger=\"load, every 5s\" hx-swap=\"innerHTML\">loading...</span></footer><script>\n\t\t\t\tfunction base64urlToUint8Array(base64url) {\n\t\t\t\t\tconst base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');\n\t\t\t\t\tconst binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));\n\t\t\t\t\treturn Uint8Array.from(binary, c => c.charCodeAt(0));\n\t\t\t\t}\n\t\t\t\tfunction uint8ArrayToBase64url(arr) {\n\t\t\t\t\tconst bin = String.fromCharCode(...new Uint8Array(arr));\n\t\t\t\t\treturn btoa(bin).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');\n\t\t\t\t}\n\t\t\t\tasync function registerDevice() {\n\t\t\t\t\tconst start = await fetch('/webauthn/register/start', {method:'POST'});\n\t\t\t\t\tconst data = await start.json();\n\t\t\t\t\tconst publicKey = data.publicKey;\n\t\t\t\t\tpublicKey.challenge = base64urlToUint8Array(publicKey.challenge);\n\t\t\t\t\tpublicKey.user.id = base64urlToUint8Array(publicKey.user.id);\n\t\t\t\t\tconst cred = await navigator.credentials.create({publicKey});\n\t\t\t\t\tconst payload = {\n\t\t\t\t\t\tcredential: {\n\t\t\t\t\t\t\tid: cred.id,\n\t\t\t\t\t\t\ttype: cred.type,\n\t\t\t\t\t\t\trawId: uint8ArrayToBase64url(cred.rawId),\n\t\t\t\t\t\t\tresponse: {\n\t\t\t\t\t\t\t\tattestationObject: uint8ArrayToBase64url(cred.response.attestationObject),\n\t\t\t\t\t\t\t\tclientDataJSON: uint8ArrayToBase64url(cred.response.clientDataJSON)\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t};\n\t\t\t\t\tconst finish = await fetch('/webauthn/register/finish', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});\n\t\t\t\t\tdocument.getElementById('auth-sandbox').innerHTML = await finish.text();\n\t\t\t\t}\n\t\t\t</script></body></html>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func AuthSessionCard(sessionID string, credentialID string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var3 == nil {
+			templ_7745c5c3_Var3 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div><p><strong>Session Active</strong></p><p>Session ID: ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var4 string
+		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(sessionID)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/views/home.templ`, Line: 79, Col: 28}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</p><p>Credential ID: ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var5 string
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(credentialID)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/views/home.templ`, Line: 80, Col: 34}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
