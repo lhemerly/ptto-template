@@ -15,15 +15,11 @@ func Open(path string) (*sql.DB, error) {
 	values.Add("_pragma", "synchronous(NORMAL)")
 	values.Add("_pragma", "foreign_keys(ON)")
 
-	dsn := (&url.URL{
-		Scheme:   "file",
-		Path:     path,
-		RawQuery: values.Encode(),
-	}).String()
+	dsn := fmt.Sprintf("%s?%s", path, values.Encode())
 
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open sqlite failed with dsn %q: %w", dsn, err)
 	}
 
 	if err := db.Ping(); err != nil {

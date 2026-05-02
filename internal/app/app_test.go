@@ -50,8 +50,14 @@ func TestShowcaseRoutes(t *testing.T) {
 			t.Fatalf("status = %d, want %d", rr.Code, http.StatusOK)
 		}
 		body := rr.Body.String()
-		if !strings.Contains(body, "ptto Onboarding Tutorial") {
+		if !strings.Contains(body, "ptto Deployment Tutorial") {
 			t.Fatalf("expected tutorial heading in body, got %q", body)
+		}
+		if !strings.Contains(body, "Rendered in") {
+			t.Fatalf("expected render timing in tutorial body, got %q", body)
+		}
+		if !strings.Contains(body, `hx-trigger="load, every 5s"`) {
+			t.Fatalf("expected resource monitor polling in tutorial body, got %q", body)
 		}
 		if !strings.Contains(body, "ptto init") || !strings.Contains(body, "ptto deploy") {
 			t.Fatalf("expected tutorial commands in body, got %q", body)
@@ -78,7 +84,7 @@ func TestShowcaseRoutes(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ReadAll() error = %v", err)
 		}
-		if !strings.Contains(string(body), "SQLite time:") {
+		if !strings.Contains(string(body), "Response:") || !strings.Contains(string(body), "DB:") {
 			t.Fatalf("unexpected body = %q", string(body))
 		}
 	})

@@ -28,11 +28,21 @@ If you are looking for microservices, React components, JSON REST APIs, or third
 git clone [https://github.com/lhemerly/ptto-template-go](https://github.com/lhemerly/ptto-template-go) my-app
 cd my-app
 
+# Required CLIs
+go install github.com/a-h/templ/cmd/templ@latest
+go install github.com/air-verse/air@latest
+# install tailwindcss standalone binary and ensure it's on PATH
+
 # Run the dev watcher (auto-compiles templ, tailwind, and go)
 make dev
 
 # App is live at http://localhost:8080
 ```
+
+## Showcase Endpoints
+
+* **`POST /latency-ping`**: Returns total server response time, SQLite query time, and SQLite clock timestamp.
+* **`GET /resource-monitor`**: Returns live memory allocation in MB (used by the footer poller).
 
 ## Deployment
 

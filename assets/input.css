@@ -1,3 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind v4 Setup 
+  This single import pulls in all of Tailwind's utility classes. 
+  The CLI will parse your .templ files and generate only what you use into /assets/app.css 
+*/
+@import "tailwindcss";

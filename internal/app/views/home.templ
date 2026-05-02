@@ -4,47 +4,103 @@ import "fmt"
 
 templ Home(renderTimeMicros int64, sessionActive bool, sessionID string, credentialID string) {
 	<!doctype html>
-	<html lang="en">
+	<html lang="en" class="h-full bg-slate-50">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>ptto-template showcase</title>
+			<link rel="stylesheet" href="/assets/app.css"/>
 			<script src="/assets/htmx.min.js"></script>
 		</head>
-		<body style="font-family: sans-serif; margin: 2rem; line-height:1.5;">
-			<header style="margin-bottom: 1.5rem;">
-				<nav>
-					<a href="/">Landing</a>
-					<span style="margin: 0 0.5rem;">·</span>
-					<a href="/tutorial">Tutorial</a>
-				</nav>
-			</header>
-			<main>
-				<h1>ptto-template: Interactive Showcase</h1>
-				<p>{ fmt.Sprintf("Rendered in %dµs", renderTimeMicros) }</p>
+		<body class="h-full font-sans text-slate-900 antialiased">
+			<div class="min-h-full">
+				<header class="bg-white shadow-sm border-b border-slate-200">
+					<nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+						<div class="flex items-center gap-8">
+							<span class="text-xl font-bold tracking-tight text-indigo-600">PTTO</span>
+							<div class="flex gap-4">
+								<a href="/" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Landing</a>
+								<a href="/tutorial" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Tutorial</a>
+							</div>
+						</div>
+						<p class="text-xs text-slate-500 font-mono">{ fmt.Sprintf("Rendered in %dµs", renderTimeMicros) }</p>
+					</nav>
+				</header>
 
-				<section>
-					<h2>Latency Ping</h2>
-					<button hx-post="/latency-ping" hx-target="#latency-result" hx-swap="innerHTML">Ping SQLite</button>
-					<div id="latency-result" style="margin-top: 0.5rem; color: #333;"></div>
-				</section>
+				<main class="py-10">
+					<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+						<div class="bg-white shadow-sm sm:rounded-xl border border-slate-200 p-8">
+							<section class="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-900">
+								<div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-600/20 to-slate-900"></div>
+								<canvas id="performance-animation" class="relative h-64 w-full"></canvas>
+								<div class="pointer-events-none absolute inset-0 flex flex-col justify-between p-6">
+									<div>
+										<p class="text-xs font-mono uppercase tracking-tight text-slate-300">Live Render Graph</p>
+										<h2 class="mt-2 text-2xl font-bold tracking-tight text-white">Performance First Experience</h2>
+									</div>
+									<div class="flex gap-3 text-xs font-mono text-slate-200">
+										<span class="rounded bg-slate-800/70 px-3 py-1">FPS: <span id="animation-fps">--</span></span>
+										<span class="rounded bg-slate-800/70 px-3 py-1">Objects: <span id="animation-objects">--</span></span>
+									</div>
+								</div>
+							</section>
 
-				<section style="margin-top: 1.5rem;">
-					<h2>WebAuthn Sandbox</h2>
-					<div id="auth-sandbox">
-						if sessionActive {
-							@AuthSessionCard(sessionID, credentialID)
-						} else {
-							<button onclick="registerDevice()">Register Device</button>
-						}
+							<h1 class="text-3xl font-bold tracking-tight text-slate-900">Interactive Showcase</h1>
+
+							<div class="mt-10 space-y-8">
+								<section class="bg-slate-50 rounded-lg p-6 border border-slate-200">
+									<h2 class="text-lg font-semibold text-slate-900">Latency Ping</h2>
+									<p class="text-sm text-slate-500 mb-4">Measure server response and database query time. Client RTT is appended after each request.</p>
+									<button 
+										hx-post="/latency-ping" 
+										hx-target="#latency-result" 
+										class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition cursor-pointer"
+									>
+										Ping SQLite
+									</button>
+									<div id="latency-result" class="mt-4 font-mono text-sm text-slate-600 min-h-[1.5rem]"></div>
+								</section>
+
+								<section class="bg-slate-50 rounded-lg p-6 border border-slate-200">
+									<h2 class="text-lg font-semibold text-slate-900">Security Sandbox</h2>
+									<p class="text-sm text-slate-500 mb-4">Test local WebAuthn biometric/key registration.</p>
+									<div id="auth-sandbox">
+										if sessionActive {
+											@AuthSessionCard(sessionID, credentialID)
+										} else {
+											<button 
+												onclick="registerDevice()"
+												class="inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition cursor-pointer"
+											>
+												Register New Device
+											</button>
+										}
+									</div>
+								</section>
+							</div>
+						</div>
 					</div>
-				</section>
-			</main>
+				</main>
 
-			<footer style="margin-top: 2rem; font-size: 0.9rem; color: #555;">
-				RAM usage: <span id="resource-monitor" hx-get="/resource-monitor" hx-trigger="load, every 5s" hx-swap="innerHTML">loading...</span>
-			</footer>
+				<footer class="max-w-3xl mx-auto px-4 text-center mt-8 pb-8 text-xs text-slate-400">
+					RAM usage: <span id="resource-monitor" hx-get="/resource-monitor" hx-trigger="load, every 5s" class="font-mono bg-slate-100 px-2 py-1 rounded">loading...</span>
+				</footer>
+			</div>
+			
 			<script>
+				let latencyStart = 0;
+				document.body.addEventListener('htmx:beforeRequest', (event) => {
+					if (event.detail.elt?.id === 'latency-result') {
+						latencyStart = performance.now();
+					}
+				});
+				document.body.addEventListener('htmx:afterSwap', (event) => {
+					if (event.detail.elt?.id === 'latency-result' && latencyStart > 0) {
+						const rttMs = performance.now() - latencyStart;
+						event.detail.elt.textContent = `${event.detail.elt.textContent} • Client RTT: ${rttMs.toFixed(1)}ms`;
+						latencyStart = 0;
+					}
+				});
 				function base64urlToUint8Array(base64url) {
 					const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
 					const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));
@@ -54,6 +110,121 @@ templ Home(renderTimeMicros int64, sessionActive bool, sessionID string, credent
 					const bin = String.fromCharCode(...new Uint8Array(arr));
 					return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 				}
+				function initPerformanceAnimation() {
+					const canvas = document.getElementById('performance-animation');
+					if (!canvas) return;
+					if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+						const fpsEl = document.getElementById('animation-fps');
+						const objectsEl = document.getElementById('animation-objects');
+						if (fpsEl) fpsEl.textContent = 'reduced';
+						if (objectsEl) objectsEl.textContent = '0';
+						return;
+					}
+
+					const ctx = canvas.getContext('2d');
+					if (!ctx) return;
+
+					const fpsEl = document.getElementById('animation-fps');
+					const objectsEl = document.getElementById('animation-objects');
+					const rootStyles = getComputedStyle(document.documentElement);
+					const pointColor = rootStyles.getPropertyValue('--color-indigo-500').trim();
+					const lineColor = rootStyles.getPropertyValue('--color-slate-200').trim();
+
+					let width = 0;
+					let height = 0;
+					let devicePixelRatio = 1;
+					let rafID = 0;
+
+					const points = [];
+
+					function resizeCanvas() {
+						const rect = canvas.getBoundingClientRect();
+						width = Math.max(320, Math.floor(rect.width));
+						height = Math.max(180, Math.floor(rect.height));
+						devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+						canvas.width = Math.floor(width * devicePixelRatio);
+						canvas.height = Math.floor(height * devicePixelRatio);
+						ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+
+						const targetCount = Math.max(24, Math.min(80, Math.floor((width * height) / 7000)));
+						while (points.length < targetCount) {
+							points.push({
+								x: Math.random() * width,
+								y: Math.random() * height,
+								vx: (Math.random() - 0.5) * 0.5,
+								vy: (Math.random() - 0.5) * 0.5,
+								r: 1 + Math.random() * 2.5,
+							});
+						}
+						if (points.length > targetCount) {
+							points.length = targetCount;
+						}
+						if (objectsEl) objectsEl.textContent = String(points.length);
+					}
+
+					resizeCanvas();
+					window.addEventListener('resize', resizeCanvas, { passive: true });
+
+					let frameCount = 0;
+					let lastFpsSample = performance.now();
+
+					const maxLinkDistance = 110;
+
+					function animateFrame(now) {
+						rafID = requestAnimationFrame(animateFrame);
+						ctx.clearRect(0, 0, width, height);
+
+						for (let i = 0; i < points.length; i++) {
+							const point = points[i];
+							point.x += point.vx;
+							point.y += point.vy;
+
+							if (point.x <= 0 || point.x >= width) point.vx *= -1;
+							if (point.y <= 0 || point.y >= height) point.vy *= -1;
+
+							for (let j = i + 1; j < points.length; j++) {
+								const other = points[j];
+								const dx = point.x - other.x;
+								const dy = point.y - other.y;
+								const distance = Math.hypot(dx, dy);
+								if (distance < maxLinkDistance) {
+									ctx.strokeStyle = lineColor;
+									ctx.globalAlpha = 0.26 * (1 - distance / maxLinkDistance);
+									ctx.beginPath();
+									ctx.moveTo(point.x, point.y);
+									ctx.lineTo(other.x, other.y);
+									ctx.stroke();
+								}
+							}
+
+							ctx.fillStyle = pointColor;
+							ctx.globalAlpha = 0.85;
+							ctx.beginPath();
+							ctx.arc(point.x, point.y, point.r, 0, Math.PI * 2);
+							ctx.fill();
+						}
+
+						ctx.globalAlpha = 1;
+						frameCount++;
+
+						if (now - lastFpsSample >= 500) {
+							const fps = Math.round((frameCount * 1000) / (now - lastFpsSample));
+							if (fpsEl) fpsEl.textContent = String(fps);
+							frameCount = 0;
+							lastFpsSample = now;
+						}
+					}
+
+					rafID = requestAnimationFrame(animateFrame);
+					document.addEventListener('visibilitychange', () => {
+						if (document.hidden && rafID) {
+							cancelAnimationFrame(rafID);
+							rafID = 0;
+						}
+						if (!document.hidden && !rafID) rafID = requestAnimationFrame(animateFrame);
+					});
+				}
+				initPerformanceAnimation();
 				async function registerDevice() {
 					const start = await fetch('/webauthn/register/start', {method:'POST'});
 					const data = await start.json();
@@ -81,9 +252,20 @@ templ Home(renderTimeMicros int64, sessionActive bool, sessionID string, credent
 }
 
 templ AuthSessionCard(sessionID string, credentialID string) {
-	<div>
-		<p><strong>Session Active</strong></p>
-		<p>Session ID: { sessionID }</p>
-		<p>Credential ID: { credentialID }</p>
+	<div class="bg-emerald-50 border border-emerald-200 rounded-md p-4">
+		<div class="flex">
+			<div class="flex-shrink-0">
+				<svg class="h-5 w-5 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+				</svg>
+			</div>
+			<div class="ml-3">
+				<h3 class="text-sm font-medium text-emerald-800">Session Active</h3>
+				<div class="mt-2 text-sm text-emerald-700">
+					<p class="truncate"><span class="font-semibold">Session ID:</span> <span class="font-mono text-xs">{ sessionID }</span></p>
+					<p class="truncate mt-1"><span class="font-semibold">Credential ID:</span> <span class="font-mono text-xs">{ credentialID }</span></p>
+				</div>
+			</div>
+		</div>
 	</div>
 }

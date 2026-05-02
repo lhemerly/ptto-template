@@ -90,8 +90,14 @@ func (a *App) handleTutorial(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	start := time.Now()
+	if err := views.Tutorial(0).Render(context.Background(), &bytes.Buffer{}); err != nil {
+		http.Error(w, "render failed", http.StatusInternalServerError)
+		return
+	}
+	renderMicros := time.Since(start).Microseconds()
 	buf := &bytes.Buffer{}
-	if err := views.Tutorial().Render(r.Context(), buf); err != nil {
+	if err := views.Tutorial(renderMicros).Render(r.Context(), buf); err != nil {
 		http.Error(w, "render failed", http.StatusInternalServerError)
 		return
 	}
@@ -297,13 +303,17 @@ func (a *App) handleLatencyPing(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	handlerStart := time.Now()
+	queryStart := time.Now()
 	var ts string
 	if err := a.db.QueryRow(`SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now');`).Scan(&ts); err != nil {
 		http.Error(w, "database query failed", http.StatusInternalServerError)
 		return
 	}
+	queryMicros := time.Since(queryStart).Microseconds()
+	responseMicros := time.Since(handlerStart).Microseconds()
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = w.Write([]byte("SQLite time: " + ts))
+	_, _ = w.Write([]byte(fmt.Sprintf("Response: %dµs (DB: %dµs) • SQLite clock: %s", responseMicros, queryMicros, ts)))
 }
 func (a *App) handleResourceMonitor(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
